@@ -12,7 +12,7 @@ use tokio::time::{Duration, Instant};
 use tokio::time;
 
 lazy_static! {
-    static ref REQUESTS: Arc<Mutex<u128>> = Arc::new(Mutex::new(0));
+    static ref REQ_TIME: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
     static ref ERRORS: Arc<Mutex<u128>> = Arc::new(Mutex::new(0));
 }
 
@@ -20,7 +20,7 @@ lazy_static! {
 async fn main() {
 
     let mut url_in = String::from("http://localhost:8080");
-    let mut rps: u16 = 100;
+    let mut rps: u16 = 10;
 
     // Args parse
     {
@@ -70,27 +70,47 @@ async fn main() {
 
     let end = start.elapsed();
 
-    // result block
+    // block of result print
     {
-        let req = *REQUESTS.lock().unwrap();
+        let req = REQ_TIME.lock().unwrap().to_vec();
         let err = *ERRORS.lock().unwrap();
+
+        let min: u32 = match req.iter().min() {
+            Some(min) => *min,
+            None => 0
+        };
+        let max: u32 = match req.iter().max() {
+            Some(max) => *max,
+            None => 0
+        };
+
+        let sum = req.iter().sum::<u32>() as u128;
+        let average: u32 = (sum as u32 / req.len() as u32) as u32;
+
         print!("\n\n");
         println!("Elapsed:             {:.2?}", end);
-        println!("Requests:            {}", &req);
+        println!("Requests:            {}", &req.len());
         println!("Errors:              {}", err);
-        println!("Percent of errors:   {:.2}%", percent_of_errors(&req, &err))
+        println!("Percent of errors:   {:.2}%", percent_of_errors(req.len(), &err));
+        println!("Response time: \
+                \n - Min:              {}ms \
+                \n - Max:              {}ms \
+                \n - Average:          {}ms", min, max, average);
     }
 
     exit(0)
 }
 
 async fn get(uri: Uri) {
+
+    let start = Instant::now();
+
     let client = Client::new();
 
     let resp = client.get(uri).await;
 
     {
-        *REQUESTS.lock().unwrap() += 1;
+        REQ_TIME.lock().unwrap().push(start.elapsed().as_millis() as u32);
     }
 
     if resp.is_err() {
@@ -114,8 +134,11 @@ fn parse_url(url: String) -> Uri {
     println!("App work only with HTTP!");
     exit(1)
 }
-fn percent_of_errors(req: &u128, err: &u128) -> f32 {
-    let res = (*err as f32 / *req as f32) * 100.0;
+fn percent_of_errors(req: usize, err: &u128) -> f32 {
+
+    let req = req as u128;
+
+    let res = (*err as f32 / req as f32) * 100.0;
     if res > 0 as f32 {
         return res
     } else {
