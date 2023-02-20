@@ -40,6 +40,10 @@ async fn main() {
         ap.parse_args_or_exit();
     }
 
+    if rps == 0 {
+        rps = 1;
+    }
+
     let url = parse_url(url_in);
     println!("\n{} | {}", url, rps);
 
@@ -85,7 +89,13 @@ async fn main() {
         };
 
         let sum = req.iter().sum::<u32>() as u128;
-        let average: u32 = (sum as u32 / req.len() as u32) as u32;
+        let average: u32 = {
+            if sum != 0 {
+                (sum as u32 / req.len() as u32) as u32
+            } else {
+                0
+            }
+        };
 
         print!("\n\n");
         println!("Elapsed:             {:.2?}", end);
