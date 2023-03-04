@@ -11,10 +11,8 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{Duration, Instant};
 use tokio::time;
 
-// lazy_static! {
-    static REQ_TIME: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-    static ERRORS: Mutex<u128> = Mutex::new(0);
-// }
+static REQ_TIME: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+static ERRORS: Mutex<u128> = Mutex::new(0);
 
 #[tokio::main]
 async fn main() {
