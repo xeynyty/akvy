@@ -11,16 +11,16 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{Duration, Instant};
 use tokio::time;
 
-lazy_static! {
-    static ref REQ_TIME: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref ERRORS: Arc<Mutex<u128>> = Arc::new(Mutex::new(0));
-}
+// lazy_static! {
+    static REQ_TIME: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+    static ERRORS: Mutex<u128> = Mutex::new(0);
+// }
 
 #[tokio::main]
 async fn main() {
 
     let mut url_in = String::from("http://localhost:8080");
-    let mut rps: u16 = 10;
+    let mut rps: u16 = 10_000;
 
     // Args parse
     {
@@ -67,12 +67,10 @@ async fn main() {
 
     // shutdown signal check
     let mut stream = signal(SignalKind::interrupt()).unwrap();
-    loop {
-        stream.recv().await;
-        break;
-    }
 
     let end = start.elapsed();
+    stream.recv().await;
+
 
     // block of result print
     {
@@ -120,7 +118,10 @@ async fn get(uri: Uri) {
     let resp = client.get(uri).await;
 
     {
-        REQ_TIME.lock().unwrap().push(start.elapsed().as_millis() as u32);
+        REQ_TIME
+            .lock()
+            .unwrap()
+            .push(start.elapsed().as_millis() as u32);
     }
 
     if resp.is_err() {
