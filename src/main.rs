@@ -1,5 +1,7 @@
 use std::process::exit;
 use std::sync::{Mutex};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::{Relaxed};
 
 use argparse::{ArgumentParser, Store};
 
@@ -15,7 +17,7 @@ mod utils;
 use crate::utils::response::ResponseTime;
 
 
-static ERRORS: Mutex<u128> = Mutex::new(0);
+static ERRORS: AtomicUsize = AtomicUsize::new(0);
 static RESPONSE: Mutex<ResponseTime> = Mutex::new(ResponseTime::new());
 
 
@@ -75,22 +77,7 @@ async fn main() {
     stream.recv().await;
     let end = start.elapsed();
 
-
-    // block of result print
-    {
-        let req = RESPONSE.lock().unwrap();
-        let err = *ERRORS.lock().unwrap();
-
-        print!("\n\n");
-        println!("Elapsed:             {:.2?}", end);
-        println!("Requests:            {}", req.get_count());
-        println!("Errors:              {}", err);
-        println!("Percent of errors:   {:.2}%", percent_of_errors(req.get_count(), &err));
-        println!("Response time: \
-                \n - Min:              {}ms \
-                \n - Max:              {}ms \
-                \n - Average:          {}ms", req.get_min(), req.get_max(), req.get_average());
-    }
+    result(end);
 
     exit(0)
 }
@@ -102,11 +89,11 @@ async fn get(uri: Uri, client: Client<HttpConnector>) {
     match client.get(uri).await {
         Ok(res) => {
             if !res.status().is_success() {
-                *ERRORS.lock().unwrap() += 1;
+                ERRORS.fetch_add(1, Relaxed);
             }
         },
         Err(_) => {
-            *ERRORS.lock().unwrap() += 1;
+            ERRORS.fetch_add(1, Relaxed);
         }
     }
 
@@ -126,11 +113,26 @@ fn parse_url(url: String) -> Uri {
     exit(1)
 }
 
-fn percent_of_errors(req: u32, err: &u128) -> f32 {
+fn percent_of_errors(req: u32, err: &usize) -> f32 {
     let res = (*err as f32 / req as f32) * 100.0;
     if res > 0 as f32 {
         res
     } else {
         0 as f32
     }
+}
+
+fn result(end: Duration) {
+    let req = RESPONSE.lock().unwrap();
+    let err = ERRORS.load(Relaxed);
+
+    print!("\n\n");
+    println!("Elapsed:             {:.2?}", end);
+    println!("Requests:            {}", req.get_count());
+    println!("Errors:              {}", err);
+    println!("Percent of errors:   {:.2}%", percent_of_errors(req.get_count(), &err));
+    println!("Response time: \
+                \n - Min:              {}ms \
+                \n - Max:              {}ms \
+                \n - Average:          {}ms", req.get_min(), req.get_max(), req.get_average());
 }
