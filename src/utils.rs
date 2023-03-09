@@ -5,7 +5,6 @@ pub mod response {
         min: u32,
         max: u32
     }
-
     impl ResponseTime {
         pub const fn new() -> Self {
             Self {
