@@ -1,5 +1,5 @@
 use std::process::exit;
-use std::sync::{Mutex};
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::{Relaxed};
 
@@ -14,7 +14,7 @@ use tokio::time;
 
 
 mod utils;
-use crate::utils::response::ResponseTime;
+use crate::utils::ResponseTime;
 
 
 static ERRORS: AtomicUsize = AtomicUsize::new(0);
@@ -56,13 +56,13 @@ async fn main() {
 
     let mut interval = time::interval(Duration::from_micros(1_000_000 / rps as u64));
 
-    let client = Client::new();
+    let client = Arc::new(Client::new());
 
     // main worker thread
     tokio::spawn(async move {
         loop {
             let url = url.clone();
-            let client = client.clone();
+            let client = Arc::clone(&client);
 
             tokio::spawn(async move {
                 get(url, client).await;
@@ -82,7 +82,7 @@ async fn main() {
     exit(0)
 }
 
-async fn get(uri: Uri, client: Client<HttpConnector>) {
+async fn get(uri: Uri, client: Arc<Client<HttpConnector>>) {
 
     let start = Instant::now();
 
