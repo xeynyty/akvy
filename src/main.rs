@@ -26,7 +26,7 @@ static RESPONSE: Mutex<ResponseTime> = Mutex::new(ResponseTime::new());
 async fn main() {
 
     let mut url_in = String::from("http://localhost:8080");
-    let mut rps: u16 = 65_000;
+    let mut rps: u16 = 10_000;
 
     // Args parse
     {
