@@ -131,12 +131,13 @@ fn percent_of_errors(req: u32, err: &usize) -> f32 {
 fn result(end: Duration) {
     let req = RESPONSE.lock().unwrap();
     let err = ERRORS.load(Relaxed);
+    let os_err = OS_ERRORS.load(Relaxed);
 
     print!("\n\n");
     println!("Elapsed:             {:.2?}", end);
     println!("Requests:            {}", req.get_count());
     println!("Errors:              {}", err);
-    println!("OS Errors:           {}  (don't count)", err);
+    println!("OS Errors:           {}  (don't count)", os_err);
     println!("Percent of errors:   {:.2}%", percent_of_errors(req.get_count(), &err));
     println!("Response time: \
                 \n - Min:              {}ms \
