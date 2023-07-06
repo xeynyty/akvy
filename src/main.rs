@@ -18,6 +18,7 @@ use crate::utils::ResponseTime;
 
 
 static ERRORS: AtomicUsize = AtomicUsize::new(0);
+static OS_ERRORS: AtomicUsize = AtomicUsize::new(0);
 static RESPONSE: Mutex<ResponseTime> = Mutex::new(ResponseTime::new());
 
 
@@ -25,7 +26,7 @@ static RESPONSE: Mutex<ResponseTime> = Mutex::new(ResponseTime::new());
 async fn main() {
 
     let mut url_in = String::from("http://localhost:8080");
-    let mut rps: u16 = 10_000;
+    let mut rps: u16 = 65_000;
 
     // Args parse
     {
@@ -86,14 +87,19 @@ async fn get(uri: Uri, client: Arc<Client<HttpConnector>>) {
 
     let start = Instant::now();
 
+
     match client.get(uri).await {
         Ok(res) => {
             if !res.status().is_success() {
                 ERRORS.fetch_add(1, Relaxed);
             }
         },
-        Err(_) => {
-            ERRORS.fetch_add(1, Relaxed);
+        Err(err) => {
+            if format!("{}", err) != "connection error: Connection reset by peer (os error 54)" {
+                ERRORS.fetch_add(1, Relaxed);
+                return;
+            }
+            OS_ERRORS.fetch_add(1, Relaxed);
         }
     }
 
@@ -130,6 +136,7 @@ fn result(end: Duration) {
     println!("Elapsed:             {:.2?}", end);
     println!("Requests:            {}", req.get_count());
     println!("Errors:              {}", err);
+    println!("OS Errors:           {}  (don't count)", err);
     println!("Percent of errors:   {:.2}%", percent_of_errors(req.get_count(), &err));
     println!("Response time: \
                 \n - Min:              {}ms \
